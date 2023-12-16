@@ -1,0 +1,29 @@
+package com.pattern;
+
+import java.util.Scanner;
+
+public class AlphaPattern {
+
+	public static void main(String[] args) {
+
+		Scanner s = new Scanner(System.in);
+		int n = s.nextInt();
+		int r =1;
+		char alpha =65;
+		while (n>=r) {
+			int j=1;
+			char temp = alpha;
+			while (r>=j) {
+				System.out.print(temp);
+				j++;
+				alpha++;
+			}
+			System.out.println();
+			r++;
+			
+		}
+		
+		
+	}
+
+}

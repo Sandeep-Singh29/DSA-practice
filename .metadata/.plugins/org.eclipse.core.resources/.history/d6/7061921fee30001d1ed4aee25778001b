@@ -1,0 +1,27 @@
+package com.pattern;
+
+import java.util.Scanner;
+
+public class ReverseNumberPattern {
+
+	public static void main(String[] args) {
+
+		Scanner s = new Scanner(System.in);
+        int n = s.nextInt();
+        int r=1;
+        
+        while(n>=r){
+            int j=1;
+            int m=r;
+            while(r>=j){
+                System.out.print(m);
+                j++;
+                m--;
+            }
+            System.out.println();
+			r++;
+        }
+		
+	}
+
+}

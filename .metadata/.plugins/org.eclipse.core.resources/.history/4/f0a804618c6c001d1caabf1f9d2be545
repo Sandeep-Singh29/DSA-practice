@@ -1,0 +1,322 @@
+package com.legal.datafetch.mostwanted.nia;
+
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
+import java.net.UnknownHostException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.cert.CertificateException;
+import java.security.cert.X509Certificate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
+
+import javax.net.ssl.SSLContext;
+
+import org.apache.commons.io.FileUtils;
+import org.apache.commons.lang3.StringUtils;
+import org.apache.http.client.config.CookieSpecs;
+import org.apache.http.client.config.RequestConfig;
+import org.apache.http.conn.ssl.NoopHostnameVerifier;
+import org.apache.http.conn.ssl.SSLConnectionSocketFactory;
+import org.apache.http.conn.ssl.TrustSelfSignedStrategy;
+import org.apache.http.conn.ssl.TrustStrategy;
+import org.apache.http.impl.client.CloseableHttpClient;
+import org.apache.http.impl.client.HttpClients;
+import org.apache.http.ssl.SSLContextBuilder;
+import org.apache.http.ssl.SSLContexts;
+import org.json.JSONObject;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.legal.datafetch.contstant.ConstantResponseVariable;
+import com.legal.datafetch.service.rabbitMq.RabbitMqService;
+import com.legal.datafetch.service.sqs.SQSService;
+import com.legal.datafetch.utils.CommonUtil;
+import com.mashape.unirest.http.HttpResponse;
+import com.mashape.unirest.http.Unirest;
+import com.mashape.unirest.http.exceptions.UnirestException;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+
+public class NiaMostWanted extends ConstantResponseVariable {
+
+  private static final Logger _LOGGER = LoggerFactory.getLogger(NiaMostWanted.class);
+  Gson gson = new GsonBuilder().serializeSpecialFloatingPointValues()
+      .enableComplexMapKeySerialization()
+      .serializeNulls().setVersion(1.0).create();
+
+  public static CloseableHttpClient sslCertiFicate()
+      throws NoSuchAlgorithmException, KeyStoreException, KeyManagementException {
+    final TrustStrategy trustAllStrategy = new TrustStrategy() {
+      public boolean isTrusted(X509Certificate[] chain, String authType)
+          throws CertificateException {
+        return true;
+      }
+    };
+    SSLContextBuilder builder = new SSLContextBuilder();
+    builder.loadTrustMaterial(trustAllStrategy);
+    SSLConnectionSocketFactory sslsf = new SSLConnectionSocketFactory(builder.build());
+    CloseableHttpClient httpclient = HttpClients.custom().setSSLSocketFactory(sslsf)
+        .setDefaultRequestConfig(RequestConfig.custom().setCookieSpec(CookieSpecs.STANDARD).build())
+        .setSSLHostnameVerifier(NoopHostnameVerifier.INSTANCE).build();
+    return httpclient;
+  }
+
+  public static void getWantedDetailsData(Map<String, Object> requestData) {
+    if (requestData.containsKey("page")) {
+      getData(requestData);
+    } else {
+      getDetails(requestData);
+    }
+  }
+
+  public static Map<String, Object> getDetails(Map<String, Object> jsonData) {
+    Map<String, Object> validData = new HashMap();
+    String strResponse = "";
+    OkHttpClient client = CommonUtil.getUnsafeOkHttpClient();
+    Request request = new Request.Builder().url("https://www.nia.gov.in/most-wanted.htm")
+        .method("GET", null)
+			.build();
+    Response response = null;
+    try {
+      response = client.newCall(request).execute();
+
+      strResponse = response.body().string();
+    } catch (UnknownHostException e) {
+      System.out.println("IP address of a host could not be determined.");
+    } catch (Exception e) {
+
+      validData.put(RESPONSEMESSAGE, INFORMATION_SOURCE_IS_NOT_WORKING_MESSAGE);
+      validData.put(RESPONSECODE, INFORMATION_SOURCE_IS_NOT_WORKING_CODE);
+
+      _LOGGER.info(LOGGER, "Time Out", validData.get(RESPONSEMESSAGE));
+      return validData;
+    }
+    try {
+      CommonUtil commonUtils = new CommonUtil();
+      JSONObject jsonObject = commonUtils.properties();
+      SQSService sqsService = SQSService.get();
+      String queueUrl = jsonObject.getString("sqsLegalDataFetchQueueUrl");
+      if (response != null && response.isSuccessful()) {
+        Document doc = Jsoup.parse(strResponse);
+
+        Elements criminalDetail = doc.getElementsByClass("imgHolder");
+        for (int i = 0; i < criminalDetail.size(); i++) {
+          Element element = criminalDetail.get(i);
+          String detailLInk = element.select("a").first().attr("href").trim();
+          String[] link = StringUtils.split(detailLInk, "?");
+          detailLInk = link[1];
+          jsonData.put("link", detailLInk);
+          String picLInk = element.select("img").first().attr("src").trim();
+          jsonData.put("photo", "https://www.nia.gov.in/" + picLInk);
+          jsonData.put("page", i + 1);
+			getData(jsonData);
+//			jsonData.put("type", "NIA most wanted");
+//			_LOGGER.info("Triggering queue for 'NIA most wanted' with data '{}'", jsonData.toString());
+//          sqsService.v2PostMsgSqs(queueUrl, new JSONObject(jsonData).toString(), "NIA most wanted");
+        }
+        return validData;
+      } else {
+        validData.put(RESPONSEMESSAGE, NO_INFORMATION_FOUND_MESSAGE);
+        validData.put(RESPONSECODE, NO_INFORMATION_FOUND_CODE);
+        validData.put(API, jsonData.get(API));
+        validData.put(CLIENTID, jsonData.get(CLIENTID));
+        validData.put(CLIENTCODE, jsonData.get(CLIENTCODE));
+        validData.put(REFERENCEID, jsonData.get(REFERENCEID));
+        _LOGGER.info(LOGGER, "", new JSONObject(validData));
+        return validData;
+      }
+    } catch (Exception e) {
+
+      validData.put(RESPONSEMESSAGE, TECHNICAL_ERROR__MESSAGE);
+      validData.put(RESPONSECODE, TECHNICAL_ERROR_CODE);
+      validData.put(API, jsonData.get(API));
+      validData.put(CLIENTID, jsonData.get(CLIENTID));
+      validData.put(CLIENTCODE, jsonData.get(CLIENTCODE));
+      validData.put(REFERENCEID, jsonData.get(REFERENCEID));
+      _LOGGER.info(LOGGER, "", new JSONObject(validData));
+    } finally {
+      response.close();
+    }
+    return validData;
+
+  }
+
+  public static void getData(Map<String, Object> jsonData) {
+
+	String photo = photoUrl(jsonData);
+    String link = (String) jsonData.get("link");
+    Map<String, Object> requestMap = new HashMap<>();
+    requestMap.put("WantedId", link);
+    requestMap.put("siteId", 1);
+    requestMap.put("languageId", 1);
+    Gson gson = new Gson();
+    String json = gson.toJson(requestMap);
+    String strResponse = null;
+    Map<String, Object> data = new HashMap<>();
+    OkHttpClient client = CommonUtil.getUnsafeOkHttpClient();
+
+    MediaType mediaType = MediaType.parse("application/json; charset=UTF-8");
+    RequestBody body = RequestBody.create(json, mediaType);
+    Request request = new Request.Builder().url(
+            "https://www.nia.gov.in/AutoCompleteService.asmx/GetWantedDetail")
+			.method("POST", body)
+			.build();
+    Response response = null;
+    try {
+      response = client.newCall(request).execute();
+      strResponse = response.body().string();
+      JSONObject detail = new JSONObject(strResponse);
+      JSONObject jsonDetail = new JSONObject(detail.optString("d"));
+      String name = jsonDetail.has("Name") ? jsonDetail.optString("Name") : "";
+      String aliases = jsonDetail.has("Aliases") ? jsonDetail.optString("Aliases") : "";
+      String fatherName = jsonDetail.has("Parentage") ? jsonDetail.optString("Parentage") : "";
+      String address = jsonDetail.has("Address") ? jsonDetail.optString("Address") : "";
+      String age = jsonDetail.has("Age") ? jsonDetail.optString("Age") : "";
+      String caseNumber = jsonDetail.has("WantedIn") ? jsonDetail.optString("WantedIn") : "";
+      String CaseTitle = jsonDetail.has("CaseTitle") ? jsonDetail.optString("CaseTitle") : "";
+
+      String caseStatus =
+          jsonDetail.has("AccusedStatus") ? jsonDetail.optString("AccusedStatus") : "";
+      String organization =
+          jsonDetail.has("OrganizationValue") ? jsonDetail.optString("OrganizationValue") : "";
+      String caseId = jsonDetail.has("CaseId") ? jsonDetail.optString("CaseId") : "";
+
+      data.put("name", name);
+      data.put("aliases", aliases);
+      data.put("father_husband_name", fatherName);
+      data.put("address", address);
+      data.put("age", age);
+      data.put("wanted_case_number", caseNumber);
+      data.put("case_title", CaseTitle);
+      data.put("accused_status", caseStatus);
+      data.put("organization", organization);
+      data.put("source", "NIA most wanted");
+      try {
+        HttpResponse<String> caseDetailsResponse = getCaseDetails(caseId);
+        if (caseDetailsResponse != null) {
+          String caseDetailsResponseStr = caseDetailsResponse.getBody();
+          Document doc = Jsoup.parse(caseDetailsResponseStr);
+          Elements element = doc.getElementsByClass("caseDesc");
+          String[] stringfirst = element.text().split("Summary of Allegations");
+          data.put("case_title", stringfirst[0]);
+          String[] stringthird = stringfirst[1].split("Present Status");
+          data.put("aligation_summary", stringthird[0]);
+          data.put("present_status", stringthird[1]);
+
+        }
+
+      } catch (Exception e) {
+
+        _LOGGER.error("Error : " + e);
+      }
+      data.put("photo", photo);
+      Map<String, Object> validData = new HashMap<String, Object>();
+      List<Map<String, Object>> requiredDataList = new ArrayList<Map<String, Object>>();
+      requiredDataList.add(data);
+      CommonUtil commonUtils = new CommonUtil();
+      JSONObject jsonObject = commonUtils.properties();
+      JSONObject rabbitMqObject = jsonObject.getJSONObject("rabbitMq");
+      validData.put("legalData", requiredDataList);
+      validData.put(RESPONSECODE, SUCCESS_CODE_NEW);
+      validData.put(RESPONSEMESSAGE, SUCCESS_MESSAGE_NEW);
+      validData.put("page", jsonData.get("page").toString());
+      validData.put(CLIENTID, jsonData.get(CLIENTID));
+      validData.put(CLIENTCODE, jsonData.get(CLIENTCODE));
+      validData.put(REFERENCEID, jsonData.get(REFERENCEID));
+
+      _LOGGER.info(LOGGER, "final data", new JSONObject(validData));
+      RabbitMqService.get().publishLegalUpdateMessage(
+         RabbitMqService.MOST_WANTED_ROUTING_KEY,
+          rabbitMqObject.getString(RabbitMqService.LEGAL_DATA_FETCH_EXCHANGE),
+          new JSONObject(validData).toString());
+      RabbitMqService.get().closeChannel();
+
+    } catch (IOException e) {
+      _LOGGER.error("Error : " + e);
+    } finally {
+      response.close();
+    }
+  }
+
+  private static HttpResponse<String> getCaseDetails(String caseId) throws UnirestException {
+    SSLContext sslcontext;
+
+    try {
+      sslcontext = SSLContexts.custom().loadTrustMaterial(null, new TrustSelfSignedStrategy())
+          .build();
+    } catch (Exception ex) {
+      throw new RuntimeException(ex);
+    }
+
+    CloseableHttpClient httpclient = HttpClients.custom()
+        .setHostnameVerifier(SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER)
+        .setSSLContext(sslcontext)
+        .build();
+    Unirest.setHttpClient(httpclient);
+    HttpResponse<String> httpResponse = Unirest.post(
+			"https://www.nia.gov.in/case-detail.htm?" + caseId)
+			.asString();
+    if (httpResponse.getStatus() == 200) {
+      return httpResponse;
+
+    }
+    return null;
+  }
+
+	public static String photoUrl(Map<String, Object> jsonData) {
+		String photo = String.valueOf(jsonData.get("photo"));
+		if (photo.contains("imgnotavailable")) {
+			return photo = "";
+		}
+		SSLContext sslcontext;
+		File file = null;
+		String ref = String.valueOf(jsonData.get(REFERENCEID));
+		try {
+			sslcontext = SSLContexts.custom().loadTrustMaterial(null, new TrustSelfSignedStrategy()).build();
+			CloseableHttpClient httpclient = HttpClients.custom()
+					.setHostnameVerifier(SSLConnectionSocketFactory.ALLOW_ALL_HOSTNAME_VERIFIER)
+					.setSSLContext(sslcontext).build();
+			Unirest.setHttpClient(httpclient);
+			HttpResponse<InputStream> response = Unirest.get(photo).asBinary();
+			String fileName = "/tmp/" + UUID.randomUUID() + ".jpg";
+			file = new File(fileName);
+			if (response.getStatus() == 200) {
+				InputStream input = response.getBody();
+				FileUtils.copyInputStreamToFile(input, file);
+				CommonUtil commonUtil = new CommonUtil();
+				photo = commonUtil.s3UrlGeneration(fileName, ref, "NIA_photo");
+			}
+		} catch (Exception e) {
+			_LOGGER.error("Error : " + e);
+		} finally {
+			if (file.delete())
+				;
+		}
+		return photo;
+	}
+
+  public static void main(String[] args) {
+    Map<String, Object> map = new HashMap<>();
+    map.put(CLIENTCODE, "Score Me");
+	map.put(REFERENCEID, UUID.randomUUID());
+    map.put(API, "external/NiaMostWanted");
+    map.put(CLIENTID, "85a55d204c3fc467764f1985205aaa67");
+	getDetails(map);
+  }
+}

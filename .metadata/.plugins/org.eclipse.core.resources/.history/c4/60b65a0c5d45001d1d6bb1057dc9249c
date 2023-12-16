@@ -1,0 +1,57 @@
+
+public class Json {
+	
+	 if (map.size() > 0) {
+     	if (!map.containsKey("name") || map.get("name").equals("")) {
+			map.put("name", "");
+		}if(!map.containsKey("nameofMember") || map.get("nameofMember").equals("")) {
+			map.put("nameofMember", "");
+		}if(!map.containsKey("clearingNumber") || map.get("clearingNumber").equals("")) {
+			map.put("clearingNumber", "");
+		}if(!map.containsKey("ReferenceNumber") || map.get("ReferenceNumber").equals("")) {
+			map.put("ReferenceNumber", "");
+		}if(!map.containsKey("prCCIT") || map.get("prCCIT").equals("")) {
+			map.put("prCCIT", "");
+		}if(!map.containsKey("CCIT") || map.get("CCIT").equals("")) {
+			map.put("CCIT", "");
+		}if(!map.containsKey("prCIT") || map.get("prCIT").equals("")) {
+			map.put("prCIT", "");
+		}if(!map.containsKey("date") || map.get("date").equals("")) {
+			map.put("date", "");
+		}if(!map.containsKey("year") || map.get("year").equals("")) {
+			map.put("year", "");
+		}if(!map.containsKey("remarks") || map.get("remarks").equals("")) {
+			map.put("remarks", "");
+		}if(!map.containsKey("exchangeNotice") || map.get("exchangeNotice").equals("")) {
+			map.put("exchangeNotice", "");
+		}if(!map.containsKey("publicNotice") || map.get("publicNotice").equals("")) {
+			map.put("publicNotice", "");
+		}if(!map.containsKey("arbitration") || map.get("arbitration").equals("")) {
+			map.put("arbitration", "");
+		}if(!map.containsKey("panNumber") || map.get("panNumber").equals("")) {
+			map.put("panNumber", "");
+		}if(!map.containsKey("fatherDirector&PartnerName") || map.get("fatherDirector&PartnerName").equals("")) {
+			map.put("fatherDirector&PartnerName", "");
+		}if(!map.containsKey("address") || map.get("address").equals("")) {
+			map.put("address", "");
+		}if(!map.containsKey("taxArrear") || map.get("taxArrear").equals("")) {
+			map.put("taxArrear", "");
+		}if(!map.containsKey("sourceOfIncome") || map.get("sourceOfIncome").equals("")) {
+			map.put("sourceOfIncome", "");
+		}if(!map.containsKey("assessmentYear") || map.get("assessmentYear").equals("")) {
+			map.put("assessmentYear", "");
+		}if(!map.containsKey("category") || map.get("category").equals("")) {
+			map.put("category", "");
+		}if(!map.containsKey("incomeTaxAuthority") || map.get("incomeTaxAuthority").equals("")) {
+			map.put("incomeTaxAuthority", "");
+		}if(!map.containsKey("designation") || map.get("designation").equals("")) {
+			map.put("designation", "");
+		}if(!map.containsKey("contact") || map.get("contact").equals("")) {
+			map.put("contact", "");
+		}if(!map.containsKey("taxArrear") || map.get("taxArrear").equals("")) {
+			map.put("taxArrear", "");
+		}if(!map.containsKey("taxArrear") || map.get("taxArrear").equals("")) {
+			map.put("taxArrear", "");
+		}
+			
+}

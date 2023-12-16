@@ -1,0 +1,21 @@
+
+public class Square {
+
+	public static void main(String[] args) {
+
+		int x=0;
+		int num =5;
+		
+		while(num>x) {
+			if (num>x) {
+				System.out.println("*");
+			}
+			x++;
+		}
+		x++;
+		
+		
+		
+	}
+
+}

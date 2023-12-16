@@ -1,0 +1,18 @@
+package Com.code;
+
+public class Add_Two_No {
+
+	public static void main(String[] args) {
+
+		int a=5;
+		int b=6;
+		int c=0;
+		
+		c=a+b;
+		
+		System.out.println("Adding a+b=c  "+c);
+		
+		System.out.println("");
+	}
+
+}

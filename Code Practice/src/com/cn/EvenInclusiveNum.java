@@ -1,0 +1,16 @@
+package com.cn;
+
+public class EvenInclusiveNum {
+
+	public static void main(String[] args) {
+
+		int num = 30;
+		int evenNumber =0;
+		while (num>=evenNumber%2) {
+			System.out.println("Even "+evenNumber);
+			evenNumber++;
+		}
+		
+	}
+
+}
